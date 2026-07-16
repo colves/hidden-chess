@@ -1,0 +1,186 @@
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Gizli Kimlik Satrancı (Hidden Identity Chess)</title>
+    <!-- Google Fonts -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <!-- Font Awesome for Icons -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <!-- PeerJS for Multiplayer -->
+    <script src="https://unpkg.com/peerjs@1.4.7/dist/peerjs.min.js"></script>
+    
+    <!-- Custom CSS -->
+    <link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+    <div class="app-container">
+        <!-- Main Menu (Create or Join) -->
+        <div id="main-menu" class="screen active">
+            <h1 class="game-title">GİZLİ KİMLİK SATRANCI</h1>
+            <p class="subtitle">Arkadaşınızla hemen oynamaya başlayın</p>
+            
+            <div class="menu-actions">
+                <button id="btn-create-game" class="btn btn-primary btn-large">
+                    <i class="fa-solid fa-plus"></i> Oyun Kur
+                </button>
+                
+                <div class="join-section">
+                    <input type="text" id="join-code-input" placeholder="Oyun Kodu Girin" />
+                    <button id="btn-join-game" class="btn btn-secondary">
+                        <i class="fa-solid fa-right-to-bracket"></i> Katıl
+                    </button>
+                </div>
+            </div>
+        </div>
+
+        <!-- Setup/Settings Screen (Host only) -->
+        <div id="host-setup-screen" class="screen">
+            <h2>Oyun Ayarları</h2>
+            
+            <div class="settings-group">
+                <label>Açık Kral (Revealed Kings)</label>
+                <div class="toggle-switch">
+                    <input type="checkbox" id="setting-revealed-kings">
+                    <span class="slider"></span>
+                </div>
+            </div>
+            
+            <div class="settings-group">
+                <label>Hazırlık Süresi</label>
+                <select id="setting-setup-time" class="modern-select">
+                    <option value="60">1 Dakika</option>
+                    <option value="120" selected>2 Dakika</option>
+                    <option value="180">3 Dakika</option>
+                    <option value="0">Sınırsız</option>
+                </select>
+            </div>
+            
+            <div class="settings-group">
+                <label>Oyun Süresi</label>
+                <select id="setting-game-time" class="modern-select">
+                    <option value="120">2 Dakika</option>
+                    <option value="300">5 Dakika</option>
+                    <option value="0" selected>Sınırsız</option>
+                </select>
+            </div>
+            
+            <div class="code-display">
+                <p>Arkadaşınıza bu kodu gönderin:</p>
+                <div class="code-box">
+                    <span id="room-code">Üretiliyor...</span>
+                    <button id="btn-copy-code" class="btn-icon" title="Kopyala"><i class="fa-regular fa-copy"></i></button>
+                </div>
+            </div>
+            
+            <div class="status-message" id="host-status">Rakip bekleniyor...</div>
+            <div style="display: flex; gap: 10px;">
+                <button id="btn-leave-setup" class="btn btn-secondary">Odadan Çık</button>
+                <button id="btn-start-setup" class="btn btn-primary" disabled>Devam Et</button>
+            </div>
+        </div>
+
+        <!-- Game Screen (Includes Setup Phase and Playing Phase) -->
+        <div id="game-screen" class="screen">
+            <div class="game-header">
+                <div class="player-info opponent">
+                    <div class="avatar"><i class="fa-solid fa-user-ninja"></i></div>
+                    <div class="details">
+                        <div class="name">Rakip</div>
+                        <div class="timer" id="timer-opponent">00:00</div>
+                        <div class="status-indicator" id="status-opponent">Bekleniyor</div>
+                    </div>
+                </div>
+                
+                <div class="game-status-center">
+                    <div id="game-phase-text" class="phase-text">Hazırlık Aşaması</div>
+                    <div id="main-timer" class="main-timer">02:00</div>
+                </div>
+
+                <div class="player-info you">
+                    <div class="details">
+                        <div class="name">Siz</div>
+                        <div class="timer" id="timer-you">00:00</div>
+                        <div class="status-indicator" id="status-you">Hazırlanıyor</div>
+                    </div>
+                    <div class="avatar"><i class="fa-solid fa-user"></i></div>
+                </div>
+            </div>
+            
+            <div class="game-main-area" style="display: flex; gap: 30px; align-items: flex-start;">
+                <div class="board-container">
+                    <div id="chess-board" class="chess-board setup-mode">
+                        <!-- Board squares will be generated by JS -->
+                    </div>
+                </div>
+                
+                <div class="graveyard-container" id="graveyard" style="display: none;">
+                    <div class="graveyard-section">
+                        <h4>Sizin Yediğiniz Taşlar</h4>
+                        <div id="graveyard-opponent" class="graveyard-box"></div>
+                    </div>
+                    <div class="graveyard-section" style="margin-top: 20px;">
+                        <h4>Kaybettiğiniz Taşlar</h4>
+                        <div id="graveyard-you" class="graveyard-box"></div>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="game-controls">
+                <div id="setup-controls">
+                    <p class="instruction">Taşlarınızı ilk iki satıra yerleştirin.</p>
+                    <button id="btn-ready" class="btn btn-success btn-large">
+                        <i class="fa-solid fa-check"></i> Hazırım
+                    </button>
+                </div>
+                <div style="margin-top: 20px; text-align: center;">
+                    <button id="btn-leave-game" class="btn btn-secondary">
+                        <i class="fa-solid fa-right-from-bracket"></i> Odadan Çık
+                    </button>
+                </div>
+            </div>
+            
+            <!-- Hidden pieces repository for setup phase -->
+            <div id="pieces-repository" class="pieces-repository">
+                <!-- Pieces will be generated here -->
+            </div>
+        </div>
+        
+        <!-- Game Over Modal -->
+        <div id="game-over-modal" class="modal">
+            <div class="modal-content">
+                <h2 id="game-over-title">Oyun Bitti!</h2>
+                <p id="game-over-message">Tebrikler, rakibin şahını ele geçirdiniz.</p>
+                <div style="display: flex; gap: 10px; justify-content: center; margin-top: 20px;">
+                    <button id="btn-play-again" class="btn btn-secondary">Ana Menü</button>
+                    <button id="btn-rematch" class="btn btn-primary">Tekrar Oyna</button>
+                </div>
+                <p id="rematch-status" style="margin-top: 10px; font-size: 0.9rem; color: var(--accent-secondary); display: none;">Rakibin onayı bekleniyor...</p>
+            </div>
+        </div>
+
+        <!-- Promotion Modal -->
+        <div id="promotion-modal" class="modal">
+            <div class="modal-content">
+                <h2>Piyon Terfisi</h2>
+                <p>Piyonunuzu dönüştürmek istediğiniz taşı seçin:</p>
+                <div class="promotion-options" style="display: flex; gap: 10px; margin-top: 20px; justify-content: center;">
+                    <button class="btn btn-secondary promo-btn" data-type="queen" style="font-size: 2rem;"><i class="fa-solid fa-chess-queen"></i></button>
+                    <button class="btn btn-secondary promo-btn" data-type="rook" style="font-size: 2rem;"><i class="fa-solid fa-chess-rook"></i></button>
+                    <button class="btn btn-secondary promo-btn" data-type="bishop" style="font-size: 2rem;"><i class="fa-solid fa-chess-bishop"></i></button>
+                    <button class="btn btn-secondary promo-btn" data-type="knight" style="font-size: 2rem;"><i class="fa-solid fa-chess-knight"></i></button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Scripts -->
+    <script src="js/peerConnection.js"></script>
+    <script src="js/game.js"></script>
+    <script src="js/dragDrop.js"></script>
+    <script src="js/main.js"></script>
+</body>
+</html>
